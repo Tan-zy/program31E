@@ -1,0 +1,110 @@
+#ifndef STM32_INIT_H
+#define STM32_INIT_H
+
+#include "stm32f10x.h"
+#include "includes.h"
+
+#if (VERSION == 0x52 && CURRENT_PRODUCT == 0x8632)
+	/**电源控制引脚**/
+	#define SLEEP_PROT	GPIOC
+	#define SLEEP_PIN	GPIO_Pin_4
+	/**ADC电压采集引脚**/
+	#define ADC_PORT	GPIOC
+	#define ADC_PIN		GPIO_Pin_5
+  
+	#define  TM1637_DIO    GPIO_Pin_10
+	#define  TM1637_DCLK   GPIO_Pin_11
+  #define  TM1637_PORT   GPIOC
+
+
+
+
+	#define VT_Pin      GPIO_Pin_0
+	#define D0_Pin      GPIO_Pin_10
+	#define D1_Pin      GPIO_Pin_11
+	#define D2_Pin      GPIO_Pin_12
+	#define D3_Pin      GPIO_Pin_13
+	#define D4_Pin      GPIO_Pin_1
+	
+	#define Remot_Port	GPIOB
+
+
+
+/*****************************************/
+#define VT      Remot_Port->IDR & VT_Pin
+#define D0      Remot_Port->IDR & D0_Pin
+#define D1      Remot_Port->IDR & D1_Pin
+#define D2      Remot_Port->IDR & D2_Pin
+#define D3      Remot_Port->IDR & D3_Pin
+#define D4      Remot_Port->IDR & D4_Pin
+
+ //蜂鸣器
+#define BUZZ_PIN	GPIO_Pin_2
+#define BUZZ_PIN_X	2
+#define BUZZ_PORT	GPIOD
+
+
+#define Buzz_H	GPIO_WriteBit(BUZZ_PORT, BUZZ_PIN, Bit_SET);
+#define Buzz_L	GPIO_WriteBit(BUZZ_PORT, BUZZ_PIN, Bit_RESET);
+
+
+
+	#define DCAN_H			GPIOB->BSRR=GPIO_Pin_0
+	#define DCAN_L			GPIOB->BRR=GPIO_Pin_0
+
+
+#define SLEEP_H			SLEEP_PROT->BSRR=SLEEP_PIN
+#define SLEEP_L			SLEEP_PROT->BRR=SLEEP_PIN
+
+
+/**门磁引脚**/
+#define WIN_PROT	GPIOC
+#define WIN_PIN		GPIO_Pin_12
+
+//读取门磁
+#define READ_WIN	GPIO_ReadInputDataBit( WIN_PROT , WIN_PIN)
+
+
+
+	#define P101_PORT		GPIOA
+	#define P102_PORT		GPIOC
+
+	#define P101_Pin		GPIO_Pin_8   //VCON
+	#define P102_Pin		GPIO_Pin_9   //FAN
+
+
+
+/*----------------------------------------------------------------------------------------*/
+#define H		1
+#define L		0
+
+#define P101(x)			((x)==(1)) ? (P101_PORT->BSRR=P101_Pin) : (P101_PORT->BRR=P101_Pin)
+#define P102(x)			((x)==(1)) ? (P102_PORT->BSRR=P102_Pin) : (P102_PORT->BRR=P102_Pin)
+
+/******************************************************************************************/
+
+
+#define Tim2_5ms_OFF	TIM_Cmd(TIM2,DISABLE);TIM2->CNT=0		 //关定时器2；清空计数器
+#define Tim2_5ms_ON		TIM_Cmd(TIM2,ENABLE)					 //开定时器2；
+
+#define Tim3_100ms_OFF	TIM_Cmd(TIM3,DISABLE);TIM3->CNT=0		 //关定时器3；清空计数器
+#define Tim3_100ms_ON	TIM_Cmd(TIM3,ENABLE)					 //开定时器3；
+
+#define Tim4_5ms_OFF	TIM_Cmd(TIM4,DISABLE);TIM4->CNT=0		 //关定时器2；清空计数器
+#define Tim4_5ms_ON		TIM_Cmd(TIM4,ENABLE)					 //开定时器2；
+
+void Wireless_GPIO(void);
+void Output_P203(void);
+void Output_P204(void);
+
+void Target_Init (void);
+void Application_Init(void);
+void Can_Config(u8 CAN_Speed,u16 Can_Addr);
+void EXTI_Configuration(bool flag);
+void TIM2_Configuration(void);
+void TIM3_Configuration(void);
+void TIM4_Configuration(void);
+int fputc(int ch, FILE *f);
+
+#endif
+

@@ -1,0 +1,619 @@
+/********************************************
+ **--------------ÎÄ¼şĞÅÏ¢---------------------
+ ** µ¥Æ¬»úÊ¹ÓÃ¿â°æ±¾£ºV3.0
+ koing2010@2015/7/15
+ *******************************************/
+#include "STM32_Init.h"
+#include <stdarg.h>
+
+extern volatile u16 AD_Value[3];
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºstatic void RCC_Configuration(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºÏµÍ³Ê±ÖÓ³õÊ¼»¯ÅäÖÃ ÏµÍ³Ê±ÖÓ72MHz  	 APB2  72MHZ      APB1  36MHZ
+ *******************************************************************************************/
+static void RCC_Configuration(void)
+{
+//	ErrorStatus HSEStartUpStatus;
+    RCC_LSICmd(ENABLE);						//open LSI for IWDG ¿ªÆô¿´ÃÅ¹·Ê±ÖÓ
+    while (RCC_GetFlagStatus(RCC_FLAG_LSIRDY) == RESET)
+        ;						//µÈ´ıÖ±µ½LSIÎÈ¶¨£¬¼ì²é¿´ÃÅ¹·Ê±ÖÓ¾ÍĞè
+    /* Enable GPIOx and AFIO clocks */
+    RCC_APB2PeriphClockCmd(
+        RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC
+        | RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOE
+        | RCC_APB2Periph_GPIOF | RCC_APB2Periph_ADC1
+        | RCC_APB2Periph_USART1 | RCC_APB2Periph_TIM1
+        | RCC_APB2Periph_AFIO, ENABLE);
+
+    /* Enable TIM2, TIM3 and TIM4 clocks */
+    RCC_APB1PeriphClockCmd(
+        RCC_APB1Periph_TIM2 | RCC_APB1Periph_TIM3 | RCC_APB1Periph_TIM4
+        /*| RCC_APB1Periph_USART3*/ | RCC_APB1Periph_WWDG
+        | RCC_APB1Periph_CAN1, ENABLE);
+
+    /* Enable DMA clock */
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
+}
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºstatic void NVIC_Configuration(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºÅäÖÃÖĞ¶ÏÓÅÏÈ¼¶
+ *******************************************************************************************/
+static void NVIC_Configuration(void)
+{
+    NVIC_InitTypeDef NVIC_InitStructure;
+
+    /* Configure one bit for preemption priority */
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+
+    /* Enable the EXTI2 Interrupt */
+
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI4_IRQn;						//
+
+//	NVIC_InitStructure.NVIC_IRQChannel = EXTI2_IRQn ;//
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+//	/* Enable the TIM2 Interrupt */
+//	NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+//	NVIC_Init(&NVIC_InitStructure);
+
+    /* Enable the TIM3 Interrupt */
+    NVIC_InitStructure.NVIC_IRQChannel = TIM3_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
+    NVIC_Init(&NVIC_InitStructure);
+
+//	/* Enable the TIM4 Interrupt */
+//	NVIC_InitStructure.NVIC_IRQChannel = TIM4_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 2;
+
+//	NVIC_Init(&NVIC_InitStructure);
+
+    /*Ê¹ÄÜcan½ÓÊÕÊı¾İÖĞ¶Ï*/
+    NVIC_InitStructure.NVIC_IRQChannel = USB_LP_CAN1_RX0_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;     // Ö÷ÓÅÏÈ¼¶Îª1
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;            // ´ÎÓÅÏÈ¼¶Îª0
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    /* Configure and enable ADC interrupt */
+    /*NVIC_InitStructure.NVIC_IRQChannel = ADC_IRQn;
+     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 4;
+     NVIC_Init(&NVIC_InitStructure);	*/
+
+    /* Enable the USART1 Interrupt */
+//	NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+//	NVIC_Init(&NVIC_InitStructure);
+
+    /* Enable the USART3 Interrupt */
+//	NVIC_InitStructure.NVIC_IRQChannel = USART3_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
+//	NVIC_Init(&NVIC_InitStructure);
+
+    /* Enable the WDG Interrupt */
+    /*	NVIC_InitStructure.NVIC_IRQChannel = WWDG_IRQn;
+     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
+     NVIC_Init(&NVIC_InitStructure);	*/
+}
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid Target_Init (void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£º°å¼¶³õÊ¼»¯º¯Êı
+ *******************************************************************************************/
+void Target_Init(void)
+{
+    /* System Clocks Configuration */
+    SystemInit(); //ÏµÍ³Ê±ÖÓÎª72M
+    RCC_Configuration();
+    /* NVIC configuration */
+    NVIC_Configuration();
+}
+
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºstatic void GPIO_Configuration(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºÅäÖÃ¸÷¸öÄ£¿éµÄÒı½Å     			  //ÓÃºê¶¨ÒåÇø±ğ   °æ±¾
+ *******************************************************************************************/
+static void GPIO_Configuration(void)
+{
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    //EEPROM£º
+    //PB6 	SCL					 GPIO_Mode_Out_OD
+    //PB7   SDA					 GPIO_Mode_Out_OD
+    //GPIO_DeInit(GPIOB);
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    //ÏÔÊ¾TM1637
+    //PC10 TM1637_DIO
+    //PC11 TM1637_DCLK
+
+    GPIO_InitStructure.GPIO_Pin =  TM1637_DIO;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;
+    GPIO_Init(TM1637_PORT, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = TM1637_DCLK;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(TM1637_PORT, &GPIO_InitStructure);
+
+    //Ò£¿Ø£º
+    GPIO_InitStructure.GPIO_Pin = VT_Pin | D0_Pin | D1_Pin | D2_Pin | D3_Pin
+                                  | D4_Pin;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    GPIO_Init(Remot_Port, &GPIO_InitStructure);
+
+
+    //CAN:
+    //PA11	CANRX CAN½ÓÊÕ		 GPIO_Mode_IPU
+    //PA12	CANTX CAN·¢ËÍ		 GPIO_Mode_AF_PP
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+
+//SWD
+ //   GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable,ENABLE);
+    
+//    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
+//    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+//    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+//    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+//    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14;
+//    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+//    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+//    GPIO_Init(GPIOA, &GPIO_InitStructure);
+//    
+//    GPIO_SetBits(GPIOA,GPIO_Pin_13);
+//    GPIO_ResetBits(GPIOA,GPIO_Pin_14);
+//DS18B20
+    GPIO_InitStructure.GPIO_Pin =  DS18B20_Pin;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;
+    GPIO_Init(DS18B20_PORT, &GPIO_InitStructure);
+
+    //ÎÂ¶È¼ì²â£º
+    //PA1
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    //¸ĞÓ¦ĞÅºÅ¼ì²â£º
+    //PC3
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+    //ÕÕ¶È¼ì²â£º
+    //PC1
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+    //·äÃùÆ÷  PD2
+    GPIO_InitStructure.GPIO_Pin = BUZZ_PIN;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(BUZZ_PORT, &GPIO_InitStructure);
+
+    //²âÊÔÒı½Å
+    GPIO_InitStructure.GPIO_Pin = TEST_IO;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    GPIO_Init(TEST_PORT, &GPIO_InitStructure);
+    Output_P203();
+}
+
+/**ÎŞÏßÒı½Å³õÊ¼»¯**/
+void Wireless_GPIO(void)
+{
+
+    GPIO_InitTypeDef GPIO_InitStructure;
+    //ÎŞÏßÄ£¿é£º
+    GPIO_InitStructure.GPIO_Pin = SPI_CSN_PIN | 	SPI_CLK_PIN | SPI_MOSI_PIN;
+
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = IRQ_PIN;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = SPI_MISO_PIN;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = CE_PIN;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+}
+
+/**¿ØÖÆ°åÉÏP203¶Ë¿Ú³õÊ¼»¯**/
+void Output_P203(void)
+{
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    GPIO_InitStructure.GPIO_Pin = P101_Pin;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(P101_PORT, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = P102_Pin;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(P102_PORT, &GPIO_InitStructure);
+}
+
+
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid EXTI_Configuration(bool flag)
+ *Èë¿Ú²ÎÊı£ºbool flag;  flag=TRUE¿ªÆôÍâ²¿ÖĞ¶Ï£»flag=FALSE ¹Ø±ÕÍâ²¿ÖĞ¶Ï
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºÅäÖÃÍâ²¿ÖĞ¶Ï
+ *******************************************************************************************/
+void EXTI_Configuration(bool flag)
+{
+    //ÅäÖÃÍâ²¿ÖĞ¶Ï
+    EXTI_InitTypeDef EXTI_InitStructure;
+
+
+#include "stm32f10x.h"                  // Device header
+    GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource4); //Ñ¡Ôña4¿Ú×÷ÎªÍâ²¿2ÏßÖĞ¶Ï¿Ú
+    EXTI_InitStructure.EXTI_Line = EXTI_Line4;//ÅäÖÃÍâ²¿ÖĞ¶ÏÏß4
+
+
+    EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;  //ÖĞ¶ÏÄ£Ê½ÎªÍâ²¿ÖĞ¶ÏÇëÇó
+    //24CÉÏÉıÑØ´¥·¢ 24DÏÂ½µÑØ´¥·¢
+    EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;  //ÅäÖÃÖĞ¶Ï´¥·¢ÎªÏÂ½µÑØ
+    EXTI_InitStructure.EXTI_LineCmd = (flag == TRUE) ? ENABLE : DISABLE; //Ê¹ÄÜÍâ²¿ÖĞ¶Ï
+    EXTI_Init(&EXTI_InitStructure);
+}
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid USART_Configuration(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºÅäÖÃUSART1¡¢USART3  ²¨ÌØÂÊ£º9600£»Ê¹ÄÜ½ÓÊÕÖĞ¶Ï
+ *******************************************************************************************/
+void USART_Configuration(void)
+{
+    USART_InitTypeDef USART_InitStructure;
+
+    USART_InitStructure.USART_BaudRate = 9600; //´«Êä²¨ÌØÂÊ£»
+    USART_InitStructure.USART_WordLength = USART_WordLength_8b;	//8Î»Êı¾İ
+    USART_InitStructure.USART_StopBits = USART_StopBits_1; //1Î»Í£Ö¹Î»
+    USART_InitStructure.USART_Parity = USART_Parity_No;	//ÎŞÆæÅ¼Ğ§ÑéÎ»
+    USART_InitStructure.USART_HardwareFlowControl =
+        USART_HardwareFlowControl_None;	//²»²ÉÓÃÓ²¼şÁ÷
+    USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+    USART_Init(USART1, &USART_InitStructure);
+
+    USART_ITConfig(USART1, USART_IT_RXNE, ENABLE); //¿ªÆô½ÓÊÜÖĞ¶Ï
+
+    USART_Cmd(USART1, ENABLE);
+
+
+
+    USART_InitStructure.USART_BaudRate = 9600;
+    USART_Init(USART3, &USART_InitStructure);
+
+    USART_ITConfig(USART3, USART_IT_RXNE, ENABLE); //¿ªUSART3ÖĞ¶Ï
+
+    USART_Cmd(USART3, ENABLE);
+}
+
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid TIM2_Configuration(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºÅäÖÃTim2 5msÒç³öÒ»´Î£»Ê¹ÄÜ½ÓÊÕÖĞ¶Ï
+ *******************************************************************************************/
+void TIM2_Configuration(void)
+{
+    TIM_TimeBaseInitTypeDef timInitStruct;
+
+    timInitStruct.TIM_ClockDivision = TIM_CKD_DIV1;	 		//
+    timInitStruct.TIM_Prescaler = 36000;					// ¼ÆÊıÆµÂÊÎª2KHz  0.5ms
+    timInitStruct.TIM_CounterMode = TIM_CounterMode_Up; 	// ÏòÉÏ¼ÆÊı
+//	timInitStruct.TIM_RepetitionCounter = 0;
+    timInitStruct.TIM_Period = 6; // Õâ¸öÖµÊµ¼ÊÉÏ¾ÍÊÇTIMX->ARR£¬ÑÓÊ±¿ªÊ¼Ê±ÖØĞÂÉè¶¨¼´¿É5ms
+
+    TIM_TimeBaseInit(TIM2, &timInitStruct);
+    TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE); 				// ¼ÆÊıÒç³öÊ±´¥·¢ÖĞ¶Ï
+
+    //ÏÈ¿ªÆôÔÙ¹Ø±Õ¶¨Ê±Æ÷½â¾ö´®¿ÚµÚÒ»×Ö½Ú²»ÄÜ½ÓÊÕÎÊÌâ
+    TIM_Cmd(TIM2, ENABLE);  	 								//Ê¹ÄÜ½ÓÊÕ¶¨Ê±Æ÷
+    //TIM_ClearFlag(TIM2, TIM_FLAG_Update);//¿ªÆô¶¨Ê±Æ÷ºóÒ»¶¨ÒªÏÈÇåÖĞ¶Ï±êÖ¾Î»·ÀÖ¹´ò¿ª¶¨Ê±Æ÷Á¢¼´½øÈëÖĞ¶Ï
+    //TIM_Cmd(TIM2,DISABLE);	 								//¹Ø±Õ½ÓÊÕ¶¨Ê±Æ÷
+    //TIM2->CNT=0;           		 							//½«¼ÆÊı¼Ä´æÆ÷Çå0
+}
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid TIM3_Configuration(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºÅäÖÃTim3 50msÒç³öÒ»´Î£»Ê¹ÄÜ½ÓÊÕÖĞ¶Ï
+ *******************************************************************************************/
+void TIM3_Configuration(void)
+{
+    TIM_TimeBaseInitTypeDef timInitStruct;
+
+    timInitStruct.TIM_ClockDivision = TIM_CKD_DIV1;
+    timInitStruct.TIM_Prescaler = 720-1;					// ¼ÆÊıÆµÂÊÎª100KHz 0.01ms
+    timInitStruct.TIM_CounterMode = TIM_CounterMode_Up; // ÏòÉÏ¼ÆÊı
+    timInitStruct.TIM_Period = 5000-1; // Õâ¸öÖµÊµ¼ÊÉÏ¾ÍÊÇTIMX->ARR£¬ÑÓÊ±¿ªÊ¼Ê±ÖØĞÂÉè¶¨¼´¿É50ms
+
+    TIM_TimeBaseInit(TIM3, &timInitStruct);
+    TIM_ITConfig(TIM3, TIM_IT_Update, ENABLE); 			// ¼ÆÊıÒç³öÊ±´¥·¢ÖĞ¶Ï
+    //TIM_Cmd(TIM3, ENABLE);
+}
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid TIM4_Configuration(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºÅäÖÃTim4 5msÒç³öÒ»´Î£»Ê¹ÄÜ½ÓÊÕÖĞ¶Ï
+ *******************************************************************************************/
+void TIM4_Configuration(void)
+{
+    TIM_TimeBaseInitTypeDef timInitStruct;
+
+    timInitStruct.TIM_ClockDivision = TIM_CKD_DIV1;	 		//
+    timInitStruct.TIM_Prescaler = 36000;					// ¼ÆÊıÆµÂÊÎª2KHz  0.5ms
+    timInitStruct.TIM_CounterMode = TIM_CounterMode_Up; 	// ÏòÉÏ¼ÆÊı
+//	timInitStruct.TIM_RepetitionCounter = 0;
+    timInitStruct.TIM_Period = 6; // Õâ¸öÖµÊµ¼ÊÉÏ¾ÍÊÇTIMX->ARR£¬ÑÓÊ±¿ªÊ¼Ê±ÖØĞÂÉè¶¨¼´¿É5ms
+
+    TIM_TimeBaseInit(TIM4, &timInitStruct);
+    TIM_ITConfig(TIM4, TIM_IT_Update, ENABLE); 				// ¼ÆÊıÒç³öÊ±´¥·¢ÖĞ¶Ï
+
+    //ÏÈ¿ªÆôÔÙ¹Ø±Õ¶¨Ê±Æ÷½â¾ö´®¿ÚµÚÒ»×Ö½Ú²»ÄÜ½ÓÊÕÎÊÌâ
+    TIM_Cmd(TIM4, ENABLE);  	 								//Ê¹ÄÜ½ÓÊÕ¶¨Ê±Æ÷
+    //TIM_ClearFlag(TIM2, TIM_FLAG_Update);//¿ªÆô¶¨Ê±Æ÷ºóÒ»¶¨ÒªÏÈÇåÖĞ¶Ï±êÖ¾Î»·ÀÖ¹´ò¿ª¶¨Ê±Æ÷Á¢¼´½øÈëÖĞ¶Ï
+    //TIM_Cmd(TIM2,DISABLE);	 								//¹Ø±Õ½ÓÊÕ¶¨Ê±Æ÷
+    //TIM2->CNT=0;           		 							//½«¼ÆÊı¼Ä´æÆ÷Çå0
+}
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid Can_Config(u8 tbs1,u16 brp,u16 Can_Addr)
+ *Èë¿Ú²ÎÊı£ºu8 CAN_Speed  CANµÄ´«ÊäËÙÂÊ 20K CAN_BS1_12tq 120£» CAN_Addr CANµÄµØÖ·0-255
+ 50K CAN_BS1_12tq 48£»
+ 100K CAN_BS1_12tq 24£»
+ 125K CAN_BS1_13tq 18£»
+ 250K CAN_BS1_13tq 9£»
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºÅäÖÃCan  //²¨ÌØÂÊÎª:36M/((1+tbs1+2)*brp)
+ *******************************************************************************************/
+void Can_Config(u8 CAN_Speed, u16 Can_Addr)	 //	   ´Ë×Óº¯ÊıÓÃÀ´ÅäÖÃcan
+{
+    CAN_InitTypeDef CAN_InitStructure;
+    CAN_FilterInitTypeDef CAN_FilterInitStructure;
+
+    //CANµ¥ÔªÉèÖÃ
+    CAN_InitStructure.CAN_TTCM = DISABLE;						 //·ÇÊ±¼ä´¥·¢Í¨ĞÅÄ£Ê½  //
+//		CAN_InitStructure.CAN_ABOM=DISABLE;						 //Èí¼ş×Ô¶¯ÀëÏß¹ÜÀí	 //
+    CAN_InitStructure.CAN_ABOM = ENABLE;					//3.22can×Ô¶¯ÀëÏß¹ÜÀíÊ¹ÄÜ
+    CAN_InitStructure.CAN_AWUM = DISABLE;	//Ë¯ÃßÄ£Ê½Í¨¹ıÈí¼ş»½ĞÑ(Çå³ıCAN->MCRµÄSLEEPÎ»)//
+//		CAN_InitStructure.CAN_NART=ENABLE;						 	//½ûÖ¹±¨ÎÄ×Ô¶¯´«ËÍ //
+    CAN_InitStructure.CAN_NART = DISABLE;
+//	CAN_InitStructure.CAN_RFLM=DISABLE;						 //±¨ÎÄ²»Ëø¶¨,ĞÂµÄ¸²¸Ç¾ÉµÄ //
+    CAN_InitStructure.CAN_RFLM = ENABLE; //Ê¹ÄÜfifoËø¶¨Ä£Ê½
+    CAN_InitStructure.CAN_TXFP = DISABLE;						//ÓÅÏÈ¼¶ÓÉ±¨ÎÄ±êÊ¶·û¾ö¶¨ //
+    CAN_InitStructure.CAN_Mode = CAN_Mode_Normal;//Ä£Ê½ÉèÖÃ£º mode:0,ÆÕÍ¨Ä£Ê½;1,»Ø»·Ä£Ê½; //
+    //ÉèÖÃ²¨ÌØÂÊ
+    CAN_InitStructure.CAN_SJW = CAN_SJW_1tq;//ÖØĞÂÍ¬²½ÌøÔ¾¿í¶È(Tsjw)Îªtsjw+1¸öÊ±¼äµ¥Î»  CAN_SJW_1tq	 CAN_SJW_2tq CAN_SJW_3tq CAN_SJW_4tq
+//  	CAN_InitStructure.CAN_BS1=tbs1; //Tbs1=tbs1+1¸öÊ±¼äµ¥Î»CAN_BS1_1tq ~CAN_BS1_16tq
+    CAN_InitStructure.CAN_BS2 = CAN_BS2_2tq;//Tbs2=tbs2+1¸öÊ±¼äµ¥Î»CAN_BS2_1tq ~	CAN_BS2_8tq
+//  	CAN_InitStructure.CAN_Prescaler=brp;            //·ÖÆµÏµÊı(Fdiv)Îªbrp+1	//
+    switch (CAN_Speed)
+    {
+    case 20:
+    {
+        CAN_InitStructure.CAN_BS1 = CAN_BS1_12tq;
+        CAN_InitStructure.CAN_Prescaler = 120;
+    }
+    break;
+    case 50:
+    {
+        CAN_InitStructure.CAN_BS1 = CAN_BS1_12tq;
+        CAN_InitStructure.CAN_Prescaler = 48;
+    }
+    break;
+    case 100:
+    {
+        CAN_InitStructure.CAN_BS1 = CAN_BS1_12tq;
+        CAN_InitStructure.CAN_Prescaler = 24;
+    }
+    break;
+    case 125:
+    {
+        CAN_InitStructure.CAN_BS1 = CAN_BS1_13tq;
+        CAN_InitStructure.CAN_Prescaler = 18;
+    }
+    break;
+    case 250:
+    {
+        CAN_InitStructure.CAN_BS1 = CAN_BS1_13tq;
+        CAN_InitStructure.CAN_Prescaler = 9;
+    }
+    break;
+    default:
+        break;
+    }
+    CAN_Init(CAN1, &CAN_InitStructure);            // ³õÊ¼»¯CAN1
+
+    CAN_FilterInitStructure.CAN_FilterNumber = 0;	  //¹ıÂËÆ÷0
+    CAN_FilterInitStructure.CAN_FilterMode = CAN_FilterMode_IdMask;
+    CAN_FilterInitStructure.CAN_FilterScale = CAN_FilterScale_16bit; //16Î»
+    CAN_FilterInitStructure.CAN_FilterIdHigh = Can_Addr << 5; ////16Î»ID
+    CAN_FilterInitStructure.CAN_FilterIdLow = 0x0000;
+    CAN_FilterInitStructure.CAN_FilterMaskIdHigh = 0x1fff; //16Î»MASK
+    CAN_FilterInitStructure.CAN_FilterMaskIdLow = 0x1fff;
+//	CAN_FilterInitStructure.CAN_FilterScale = CAN_FilterScale_32bit; //32Î»
+//	CAN_FilterInitStructure.CAN_FilterIdHigh   = (((u32)Can_Addr<<21)&0xffff0000)>>16;
+//	CAN_FilterInitStructure.CAN_FilterIdLow   = (((u32)Can_Addr<<21)|CAN_ID_STD|CAN_RTR_DATA)&0xffff;
+//	CAN_FilterInitStructure.CAN_FilterMaskIdHigh  = 0xFFFF;
+//	CAN_FilterInitStructure.CAN_FilterMaskIdLow   = 0xFFFF;
+    CAN_FilterInitStructure.CAN_FilterFIFOAssignment = CAN_FIFO0; //¹ıÂËÆ÷0¹ØÁªµ½FIFO0
+    CAN_FilterInitStructure.CAN_FilterActivation = ENABLE; //¼¤»î¹ıÂËÆ÷0
+
+    CAN_FilterInit(&CAN_FilterInitStructure); //ÂË²¨Æ÷³õÊ¼»¯
+
+    CAN_ITConfig(CAN1, CAN_IT_FMP0, ENABLE); //FIFO0ÏûÏ¢¹ÒºÅÖĞ¶ÏÔÊĞí.
+}
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid ADC_Conf(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºADCÅäÖÃ£¬Á½¸öÍ¨µÀ£¬Ê¹ÓÃDMA¹¦ÄÜ
+ *******************************************************************************************/
+void ADC_Conf(void)
+{
+    ADC_InitTypeDef ADC_InitStructure;
+    /* ADC1 Configuration ------------------------------------------------------*/
+    ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;	 //	 //¶ÀÁ¢Ä£Ê½
+    ADC_InitStructure.ADC_ScanConvMode = ENABLE;			 //	 //Á¬Ğø¶àÍ¨µÀÄ£Ê½
+
+    ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;	   //  //Á¬Ğø×ª»»
+
+    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;	//	//×ª»»²»ÊÜÍâ½ç¾ö¶¨
+
+    ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right; //	//ÓÒ¶ÔÆë
+    //ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Left;
+    ADC_InitStructure.ADC_NbrOfChannel = 3;  //É¨ÃèÍ¨µÀÊı
+    ADC_Init(ADC1, &ADC_InitStructure);
+    RCC_ADCCLKConfig(RCC_PCLK2_Div8);  //Ê±ÖÓ·ÖÆµ 1mhz
+
+    ADC_TempSensorVrefintCmd(ENABLE); //Ê¹ÄÜÎÂ¶È´«¸ĞÆ÷ºÍÄÚ²¿²Î¿¼µçÑ¹Í¨µ
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_1,  1, ADC_SampleTime_239Cycles5);//INTEMP
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_11, 2, ADC_SampleTime_239Cycles5);//Lx
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_13, 3, ADC_SampleTime_239Cycles5);//PIR
+
+
+
+    // ADC_ChannelConfig();
+    ADC_Cmd(ADC1, ENABLE);              //Ê¹ÄÜ»òÕßÊ§ÄÜÖ¸¶¨µÄADC
+    ADC_DMACmd(ADC1, ENABLE);
+    /* Enable ADC1 reset calibaration register */
+    ADC_ResetCalibration(ADC1);
+    /* Check the end of ADC1 reset calibration register */
+    while (ADC_GetResetCalibrationStatus(ADC1));
+
+    /* Start ADC1 calibaration */
+    ADC_StartCalibration(ADC1);
+    /* Check the end of ADC1 calibration */
+    while (ADC_GetCalibrationStatus(ADC1));
+
+    /* Start ADC1 Software Conversion */
+    ADC_SoftwareStartConvCmd(ADC1, ENABLE);
+
+// 	ADC_SoftwareStartConvCmd(ADC1,ENABLE); //Ê¹ÄÜ»òÕßÊ§ÄÜÖ¸¶¨µÄADCµÄÈí¼ş×ª»»Æô¶¯¹¦ÄÜ
+}
+
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid DMA_Configuration(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºDMAÅäÖÃ£¬Ê¹ĞòÁĞ1½á¹û·ÅÔÚAD_Value[0]£¬ĞòÁĞ2½á¹û·ÅÔÚAD_Value[1]
+ *******************************************************************************************/
+void DMA_Configuration(void)
+{
+    DMA_InitTypeDef DMA_InitStructure;
+
+    DMA_DeInit(DMA1_Channel1);
+    //ÅäÖÃDMAÍ¨µÀµÄÍâÉè»ùµØÖ·
+    DMA_InitStructure.DMA_PeripheralBaseAddr = (u32)&ADC1->DR;
+    //ÅäÖÃDMAÍ¨µÀµÄ´æ´¢Æ÷»ùµØÖ·
+    DMA_InitStructure.DMA_MemoryBaseAddr = (u32)&AD_Value;
+    //ÍâÉèÊÇDMAÍ¨µÀµÄÊı¾İÔ´
+    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
+    //BufferSize=2£¬ÒòÎªADC×ª»»ĞòÁĞÓĞ2¸öÍ¨µÀ
+    //Èç´ËÉèÖÃ£¬Ê¹ĞòÁĞ1½á¹û·ÅÔÚAD_Value[0]£¬ĞòÁĞ2½á¹û·ÅÔÚAD_Value[1]
+    DMA_InitStructure.DMA_BufferSize = 3;
+    //DMA´«ÊäÍêÊı¾İºóÍâÉè»ùµØÖ·²»Ôö¼Ó
+    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+    //DMA´«ÊäÍêÊı¾İºó´æ´¢Æ÷»ùµØÖ·Ôö¼ÓÒÔ±ã°ÑÏÂÒ»´Î×ª»»½á¹û´«µİ¸øAD_Value[2]
+    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+    //ÍâÉèµÄÊı¾İ³¤¶ÈÎª16Î»
+    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+    //´æ´¢Æ÷Êı¾İ³¤¶ÈÎª16Î»
+    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+    //Ñ­»·Ä£Ê½¿ªÆô£¬BufferĞ´Âúºó£¬×Ô¶¯»Øµ½³õÊ¼µØÖ·¿ªÊ¼´«Êä£¬Õı³£Ä£Ê½Ê±DMAÖ»½ø	//ĞĞÒ»´ÎÊı¾İ´«Êä
+    DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
+    //¶¨ÒåDMAµÄÓÅÏÈ¼¶
+    DMA_InitStructure.DMA_Priority = DMA_Priority_High;
+    //²»Ê¹ÓÃ´æ´¢Æ÷µ½´æ´¢Æ÷´«Êä
+    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
+    DMA_Init(DMA1_Channel1, &DMA_InitStructure);
+    //ÅäÖÃÍê³Éºó£¬Æô¶¯DMAÍ¨µÀ
+    DMA_Cmd(DMA1_Channel1, ENABLE);
+}
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid IWDG_Configuration(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºDMAÅäÖÃ£¬Ê¹ĞòÁĞ1½á¹û·ÅÔÚAD_Value[0]£¬ĞòÁĞ2½á¹û·ÅÔÚAD_Value[1]
+ *******************************************************************************************/
+void IWDG_Configuration(void)
+{
+    /* Ğ´Èë0x5555,ÓÃÓÚÔÊĞí¹·¹·¼Ä´æÆ÷Ğ´Èë¹¦ÄÜ */
+    IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+
+    /* ¹·¹·Ê±ÖÓ·ÖÆµ,40K/256=156HZ(6.4ms)*/
+    IWDG_SetPrescaler(IWDG_Prescaler_256);
+
+    /* Î¹¹·Ê±¼ä 5s/6.4MS=781 .×¢Òâ²»ÄÜ´óÓÚ0xfff*/
+    IWDG_SetReload(781);
+
+    /* Î¹¹·*/
+    IWDG_ReloadCounter();
+
+    /* Ê¹ÄÜ*/
+    IWDG_Enable();
+}
+
+/********************************************************************************************
+ *º¯ÊıÃû³Æ£ºvoid Application_Init(void)
+ *Èë¿Ú²ÎÊı£ºÎŞ
+ *³ö¿Ú²ÎÊı£ºÎŞ
+ *¹¦ÄÜËµÃ÷£ºµ¥Æ¬»ú³õÊ¼»¯
+ *******************************************************************************************/
+void Application_Init(void)
+{
+    GPIO_Configuration();
+
+//	TIM2_Configuration();
+    TIM3_Configuration();
+    EXTI_Configuration(FALSE);
+    //Can_Config(100,1);
+    //USART_Configuration();
+
+    DMA_Configuration();
+    ADC_Conf();
+#ifndef DEBUG_DEBUG
+    IWDG_Configuration();
+#endif
+}
+
